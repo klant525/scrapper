@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Google Maps Scraper</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+</head>
+<body class="bg-light">
+<div class="container mt-5">
+    <h2 class="text-center text-primary">🔍 Tìm kiếm địa điểm trên Google Maps</h2>
+    <div class="card p-4 shadow-lg">
+        <form id="searchForm">
+            <div class="mb-3">
+                <label for="search_key" class="form-label">Từ khóa:</label>
+                <input type="text" id="search_key" name="search_key" class="form-control" required>
+            </div>
+            <div class="mb-3">
+                <label for="num_results" class="form-label">Số kết quả:</label>
+                <input type="number" id="num_results" name="num_results" class="form-control" min="1" max="50" required>
+            </div>
+            <button type="submit" class="btn btn-primary w-100">📍 Tìm với vị trí hiện tại</button>
+        </form>
+    </div>
+
+    <div class="mt-4">
+        <h3 class="text-success text-center">📌 Kết quả tìm kiếm</h3>
+        <div class="table-responsive">
+            <table class="table table-striped table-hover shadow-sm" id="results">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Tên địa điểm</th>
+                        <th>Địa chỉ</th>
+                        <th>Số điện thoại</th>
+                        <th>Website</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+        <div class="text-center mt-3">
+            <a href="/download" class="btn btn-success">⬇️ Tải về CSV</a>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById("searchForm").addEventListener("submit", function(e){
+    e.preventDefault();
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(function(position) {
+            sendSearch(position.coords.latitude, position.coords.longitude);
+        }, function() {
+            alert("Không thể lấy vị trí. Sẽ tìm kiếm toàn quốc.");
+            sendSearch();
+        });
+    } else {
+        alert("Trình duyệt không hỗ trợ GPS.");
+        sendSearch();
+    }
+});
+
+function sendSearch(lat, lng) {
+    let formData = new FormData(document.getElementById("searchForm"));
+    if (lat && lng) {
+        formData.append("lat", lat);
+        formData.append("lng", lng);
+    }
+
+    fetch("/search", {
+        method: "POST",
+        body: formData
+    })
+    .then(res => res.json())
+    .then(data => renderResults(data))
+    .catch(err => console.error(err));
+}
+
+function renderResults(results) {
+    let tbody = document.querySelector("#results tbody");
+    tbody.innerHTML = "";
+    results.forEach(item => {
+        let websiteHTML = item["Website"] && item["Website"] !== "Không có dữ liệu" 
+            ? `<a href="${item['Website']}" target="_blank" class="btn btn-sm btn-outline-info">🌐 Xem</a>`
+            : `<span class="text-muted">Không có</span>`;
+        let row = `<tr>
+            <td>${item["Tên địa điểm"]}</td>
+            <td>${item["Địa chỉ"]}</td>
+            <td>${item["Số điện thoại"]}</td>
+            <td>${websiteHTML}</td>
+        </tr>`;
+        tbody.innerHTML += row;
+    });
+}
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
