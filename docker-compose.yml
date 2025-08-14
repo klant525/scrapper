@@ -1,0 +1,21 @@
+services:
+  gmaps-scraper:
+    build: .
+    command: python app.py
+    user: "1000:1000"          # chạy bằng appuser trong image
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./:/app:ro             # code RO
+      - gmaps_data:/app/data   # chỉ thư mục data là RW
+    # optional:
+    environment:
+      - FLASK_ENV=production
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8080/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  gmaps_data:
