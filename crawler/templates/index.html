@@ -3,39 +3,475 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Google Maps Scraper</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <title>Google Maps Scraper - Async Version</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <style>
-        .loading-overlay {
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
+                       box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+                       background 0.2s ease,
+                       border-color 0.2s ease;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #0c1426 0%, #1a2332 25%, #2d3748 50%, #4a5568 100%);
+            min-height: 100vh;
+            padding: 32px;
+            color: #1a202c;
+            line-height: 1.7;
+            letter-spacing: -0.01em;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 32px;
+            padding: 48px;
+            box-shadow: 
+                0 32px 64px -12px rgba(0, 0, 0, 0.25),
+                0 0 0 1px rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(16, 185, 129, 0.5), transparent);
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 56px;
+            position: relative;
+        }
+        
+        .header::before {
+            content: '';
+            position: absolute;
+            top: -24px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 120px;
+            height: 4px;
+            background: linear-gradient(90deg, #10b981, #06b6d4, #3b82f6);
+            border-radius: 2px;
+            box-shadow: 0 0 20px rgba(16, 185, 129, 0.3);
+        }
+        
+        /* Updated logo container to be horizontal with title */
+        .title-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+        
+        .logo {
+            width: 64px;
+            height: 64px;
+            object-fit: contain;
+            filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.15));
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .logo:hover {
+            transform: scale(1.05) rotate(2deg);
+            filter: drop-shadow(0 12px 24px rgba(0, 0, 0, 0.2));
+        }
+        
+        .header h1 {
+            color: #0f172a;
+            font-size: 3.5rem;
+            font-weight: 800;
+            margin: 0;
+            letter-spacing: -0.04em;
+            background: linear-gradient(135deg, #0f172a 0%, #374151 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .header p {
+            color: #64748b;
+            font-size: 1.25rem;
+            font-weight: 400;
+            max-width: 700px;
+            margin: 0 auto;
+            line-height: 1.8;
+        }
+        
+        /* Added scroll to top button styles */
+        .scroll-to-top {
             position: fixed;
+            bottom: 32px;
+            right: 32px;
+            width: 56px;
+            height: 56px;
+            background: linear-gradient(135deg, #10b981 0%, #06b6d4 100%);
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 8px 25px -5px rgba(16, 185, 129, 0.4);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(20px);
+        }
+        
+        .scroll-to-top.visible {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+        }
+        
+        .scroll-to-top:hover {
+            transform: translateY(-4px) scale(1.1);
+            box-shadow: 0 20px 40px -5px rgba(16, 185, 129, 0.5);
+        }
+        
+        .scroll-to-top img {
+            width: 24px;
+            height: 24px;
+            filter: brightness(0) invert(1);
+        }
+        
+        .form-section {
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            border-radius: 24px;
+            padding: 40px;
+            margin-bottom: 40px;
+            border: 1px solid #e2e8f0;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 8px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+        
+        .form-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #10b981, #06b6d4, #3b82f6);
+        }
+        
+        .form-section h3 {
+            color: #0f172a;
+            font-size: 1.75rem;
+            font-weight: 700;
+            margin-bottom: 32px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            letter-spacing: -0.02em;
+        }
+        
+        .form-row {
+            display: flex;
+            gap: 32px;
+            margin-bottom: 32px;
+            align-items: end;
+        }
+        
+        .form-group {
+            flex: 1;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 12px;
+            color: #374151;
+            font-weight: 600;
+            font-size: 0.875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+        
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 20px 24px;
+            border: 2px solid #e5e7eb;
+            border-radius: 16px;
+            font-size: 16px;
+            font-family: inherit;
+            font-weight: 500;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            background: white;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            border-color: #10b981;
+            box-shadow: 
+                0 0 0 4px rgba(16, 185, 129, 0.1),
+                0 4px 12px rgba(0, 0, 0, 0.15);
+            transform: translateY(-2px);
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #10b981 0%, #06b6d4 100%);
+            color: white;
+            border: none;
+            padding: 20px 40px;
+            border-radius: 16px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            min-width: 180px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            box-shadow: 0 8px 25px -5px rgba(16, 185, 129, 0.4);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s ease;
+        }
+        
+        .btn:hover::before {
+            left: 100%;
+        }
+        
+        .btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 20px 40px -5px rgba(16, 185, 129, 0.4);
+        }
+        
+        .btn:active {
+            transform: translateY(-1px);
+        }
+        
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.1);
+        }
+        
+        .system-status {
+            background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+            border: 2px solid #10b981;
+            border-radius: 20px;
+            padding: 24px;
+            margin-bottom: 32px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.1);
+        }
+        
+        .system-status::before {
+            content: '📊';
+            font-size: 1.75rem;
+            filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+        }
+        
+        .tasks-section {
+            margin-top: 48px;
+        }
+        
+        .tasks-section h3 {
+            color: #0f172a;
+            font-size: 1.75rem;
+            font-weight: 700;
+            margin-bottom: 32px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            letter-spacing: -0.02em;
+        }
+        
+        .task-item {
+            background: white;
+            border-radius: 20px;
+            padding: 32px;
+            margin-bottom: 20px;
+            box-shadow: 
+                0 8px 25px -5px rgba(0, 0, 0, 0.1),
+                0 0 0 1px rgba(0, 0, 0, 0.05);
+            border-left: 6px solid #10b981;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .task-item::before {
+            content: '';
+            position: absolute;
             top: 0;
             left: 0;
             width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.7);
-            display: none;
-            justify-content: center;
+            height: 2px;
+            background: linear-gradient(90deg, #10b981, #06b6d4, #3b82f6);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .task-item:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 40px -5px rgba(0, 0, 0, 0.15);
+        }
+        
+        .task-item:hover::before {
+            opacity: 1;
+        }
+        
+        .task-header {
+            display: flex;
+            justify-content: space-between;
             align-items: center;
-            z-index: 9999;
+            margin-bottom: 20px;
         }
         
-        .loading-content {
-            background: white;
-            padding: 2rem;
-            border-radius: 15px;
-            text-align: center;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        .task-id {
+            font-family: 'JetBrains Mono', monospace;
+            background: linear-gradient(135deg, #f1f5f9, #e2e8f0);
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #64748b;
+            border: 1px solid #e2e8f0;
         }
         
-        .spinner {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #007bff;
+        .task-status {
+            padding: 8px 20px;
+            border-radius: 24px;
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        .status-queued { 
+            background: linear-gradient(135deg, #fef3c7, #fde68a); 
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+        .status-running { 
+            background: linear-gradient(135deg, #dbeafe, #bfdbfe); 
+            color: #1e40af;
+            border: 1px solid #3b82f6;
+        }
+        .status-completed { 
+            background: linear-gradient(135deg, #d1fae5, #a7f3d0); 
+            color: #065f46;
+            border: 1px solid #10b981;
+        }
+        .status-failed { 
+            background: linear-gradient(135deg, #fee2e2, #fecaca); 
+            color: #991b1b;
+            border: 1px solid #ef4444;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 12px;
+            background: #f1f5f9;
+            border-radius: 6px;
+            overflow: hidden;
+            margin: 16px 0;
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #10b981, #06b6d4);
+            width: 0%;
+            transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            border-radius: 6px;
+            box-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
+        }
+        
+        .task-actions {
+            margin-top: 20px;
+            display: flex;
+            gap: 16px;
+        }
+        
+        .btn-sm {
+            padding: 12px 20px;
+            font-size: 14px;
+            border-radius: 12px;
+            font-weight: 600;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        
+        .btn-success { 
+            background: linear-gradient(135deg, #10b981, #059669);
+        }
+        .btn-danger { 
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+        }
+        .btn-secondary { 
+            background: linear-gradient(135deg, #6b7280, #4b5563);
+        }
+        
+        .alert {
+            padding: 20px 24px;
+            border-radius: 16px;
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            font-weight: 600;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            border: 2px solid;
+        }
+        
+        .alert-danger {
+            background: linear-gradient(135deg, #fee2e2, #fecaca);
+            color: #991b1b;
+            border-color: #f87171;
+        }
+        
+        .alert-success {
+            background: linear-gradient(135deg, #d1fae5, #a7f3d0);
+            color: #065f46;
+            border-color: #34d399;
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-top: 3px solid white;
             border-radius: 50%;
-            width: 50px;
-            height: 50px;
             animation: spin 1s linear infinite;
-            margin: 0 auto 1rem;
         }
         
         @keyframes spin {
@@ -43,453 +479,571 @@
             100% { transform: rotate(360deg); }
         }
         
-        .pulse {
-            animation: pulse 2s infinite;
+        .coord-helper {
+            margin-top: 20px;
+            padding: 20px;
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(6, 182, 212, 0.1));
+            border-radius: 16px;
+            border: 2px solid rgba(16, 185, 129, 0.2);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.1);
         }
         
-        @keyframes pulse {
-            0% { opacity: 0.6; }
-            50% { opacity: 1; }
-            100% { opacity: 0.6; }
+        .coord-helper span {
+            font-size: 14px;
+            color: #065f46;
+            font-weight: 600;
+            margin-right: 16px;
         }
         
-        .progress-bar-custom {
-            background: linear-gradient(45deg, #007bff, #28a745);
-            animation: progressShine 2s linear infinite;
+        .coord-btn {
+            margin: 6px;
+            padding: 8px 16px;
+            background: white;
+            border: 2px solid #10b981;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            color: #065f46;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 2px 8px rgba(16, 185, 129, 0.1);
         }
         
-        @keyframes progressShine {
-            0% { background-position: -200px 0; }
-            100% { background-position: 200px 0; }
-        }
-        
-        .result-card {
-            transition: all 0.3s ease;
-            border-left: 4px solid #007bff;
-        }
-        
-        .result-card:hover {
+        .coord-btn:hover {
+            background: #10b981;
+            color: white;
             transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0, 123, 255, 0.2);
+            box-shadow: 0 8px 20px rgba(16, 185, 129, 0.3);
         }
         
-        .stats-card {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border-radius: 10px;
+        .empty-state {
+            text-align: center;
+            padding: 64px 32px;
+            color: #64748b;
+            background: linear-gradient(135deg, #f8fafc, #f1f5f9);
+            border-radius: 24px;
+            border: 3px dashed #cbd5e1;
+            position: relative;
+            overflow: hidden;
         }
         
-        .fade-in {
-            animation: fadeIn 0.5s ease-in;
+        .empty-state::before {
+            content: '📋';
+            font-size: 4rem;
+            display: block;
+            margin-bottom: 24px;
+            filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.1));
+            animation: float 3s ease-in-out infinite;
         }
         
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
+        .empty-state p {
+            font-size: 1.125rem;
+            font-weight: 500;
+            line-height: 1.8;
         }
         
-        .search-card {
-            background: linear-gradient(135deg, #74b9ff 0%, #0984e3 100%);
-            color: white;
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
         }
         
-        .btn-search {
-            background: linear-gradient(45deg, #28a745, #20c997);
-            border: none;
-            padding: 12px 30px;
-            font-weight: bold;
-            letter-spacing: 0.5px;
+        @media (max-width: 768px) {
+            body {
+                padding: 20px;
+            }
+            
+            .container {
+                padding: 32px;
+                border-radius: 24px;
+            }
+            
+            /* Mobile responsive for horizontal title layout */
+            .title-container {
+                flex-direction: column;
+                gap: 16px;
+            }
+            
+            .logo {
+                width: 48px;
+                height: 48px;
+            }
+            
+            .header h1 {
+                font-size: 2.5rem;
+            }
+            
+            .form-row {
+                flex-direction: column;
+                gap: 20px;
+            }
+            
+            .task-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 16px;
+            }
+            
+            .task-actions {
+                flex-wrap: wrap;
+            }
+            
+            .form-section {
+                padding: 32px;
+            }
+            
+            /* Mobile scroll button positioning */
+            .scroll-to-top {
+                bottom: 20px;
+                right: 20px;
+                width: 48px;
+                height: 48px;
+            }
+            
+            .scroll-to-top img {
+                width: 20px;
+                height: 20px;
+            }
         }
         
-        .btn-search:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 5px 15px rgba(40, 167, 69, 0.4);
+        /* Focus styles for accessibility */
+        button:focus-visible,
+        input:focus-visible,
+        select:focus-visible {
+            outline: 3px solid #10b981;
+            outline-offset: 2px;
+        }
+        
+        /* Smooth page transitions */
+        .container {
+            animation: fadeInUp 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
     </style>
 </head>
-<body class="bg-light">
-    <!-- Loading Overlay -->
-    <div class="loading-overlay" id="loadingOverlay">
-        <div class="loading-content">
-            <div class="spinner"></div>
-            <h5 class="text-primary mb-3">🔍 Đang tìm kiếm...</h5>
-            <p class="text-muted mb-3" id="loadingStatus">Đang khởi động trình duyệt...</p>
-            <div class="progress mb-3">
-                <div class="progress-bar progress-bar-custom" role="progressbar" style="width: 0%" id="progressBar"></div>
+<body>
+    <div class="container">
+        <div class="header">
+            <!-- Updated to horizontal layout with logo next to title -->
+            <div class="title-container">
+                <img src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/logo%201-S35nlW40GiGFiJ8lD6LzHmBIeTXpSP.png" alt="Scraper Logo" class="logo">
+                <h1>Google Maps Scraper</h1>
             </div>
-            <p class="small text-muted">Vui lòng không đóng trang web</p>
+            <p>Phiên bản bất đồng bộ - Thu thập thông tin địa điểm từ Google Maps một cách thông minh và hiệu quả</p>
         </div>
-    </div>
 
-    <div class="container mt-5">
-        <!-- Header -->
-        <div class="text-center mb-4">
-            <h1 class="display-4 text-primary mb-2">
-                <i class="fas fa-map-marked-alt"></i> Maps Scraper
-            </h1>
-            <p class="text-muted">Tìm kiếm và thu thập thông tin địa điểm từ Google Maps</p>
+        <!-- System Status -->
+        <div id="systemStatus" class="system-status">
+            <strong>Trạng thái hệ thống:</strong>
+            <span id="statusText">Đang tải...</span>
         </div>
 
         <!-- Search Form -->
-        <div class="card shadow-lg mb-4 search-card">
-            <div class="card-body p-4">
-                <form id="searchForm">
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="search_key" class="form-label fw-bold">
-                                <i class="fas fa-search"></i> Từ khóa tìm kiếm:
-                            </label>
-                            <input type="text" id="search_key" name="search_key" class="form-control form-control-lg" 
-                                   placeholder="VD: nhà hàng Hà Nội, bệnh viện TPHCM..." required>
-                        </div>
-                        <div class="col-md-4 mb-3">
-                            <label for="num_results" class="form-label fw-bold">
-                                <i class="fas fa-list-ol"></i> Số kết quả:
-                            </label>
-                            <input type="number" id="num_results" name="num_results" class="form-control form-control-lg" 
-                                   min="1" max="100" value="10" required>
-                        </div>
-                        <div class="col-md-2 mb-3 d-flex align-items-end">
-                            <button type="submit" class="btn btn-search btn-lg w-100" id="searchBtn">
-                                <i class="fas fa-location-arrow"></i> Tìm kiếm
-                            </button>
-                        </div>
+        <div class="form-section">
+            <h3>🔍 Tìm kiếm địa điểm</h3>
+            <form id="searchForm">
+                <div class="form-row">
+                    <div class="form-group" style="flex: 2">
+                        <label for="searchKey">Từ khóa tìm kiếm *</label>
+                        <input type="text" id="searchKey" name="search_key" 
+                               placeholder="VD: nhà hàng Hà Nội, khách sạn TPHCM..." required>
                     </div>
-                </form>
-            </div>
+                    <div class="form-group">
+                        <label for="numResults">Số lượng</label>
+                        <select id="numResults" name="num_results">
+                            <option value="10">10 kết quả</option>
+                            <option value="20">20 kết quả</option>
+                            <option value="50">50 kết quả</option>
+                            <option value="100">100 kết quả</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="lat">Vĩ độ (tùy chọn)</label>
+                        <input type="number" id="lat" name="lat" step="any" 
+                               placeholder="VD: 21.0285">
+                    </div>
+                    <div class="form-group">
+                        <label for="lng">Kinh độ (tùy chọn)</label>
+                        <input type="number" id="lng" name="lng" step="any" 
+                               placeholder="VD: 105.8542">
+                    </div>
+                    <div class="form-group">
+                        <button type="submit" class="btn" id="searchBtn">
+                            <span id="searchBtnText">🚀 Bắt đầu thu thập</span>
+                            <div id="searchBtnLoading" class="loading" style="display: none;"></div>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="coord-helper">
+                    <span>Ví dụ tọa độ:</span>
+                    <button type="button" class="coord-btn" onclick="setCoords('21.0285', '105.8542')">Hà Nội</button>
+                    <button type="button" class="coord-btn" onclick="setCoords('10.8231', '106.6297')">TP.HCM</button>
+                    <button type="button" class="coord-btn" onclick="setCoords('16.0544', '108.2022')">Đà Nẵng</button>
+                </div>
+            </form>
         </div>
 
-        <!-- Stats -->
-        <div class="row mb-4" id="statsSection" style="display: none;">
-            <div class="col-md-3">
-                <div class="card stats-card text-center p-3">
-                    <i class="fas fa-map-marker-alt fa-2x mb-2"></i>
-                    <h4 class="mb-0" id="totalFound">0</h4>
-                    <small>Tổng tìm thấy</small>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card stats-card text-center p-3">
-                    <i class="fas fa-check-circle fa-2x mb-2"></i>
-                    <h4 class="mb-0" id="successfulExtracts">0</h4>
-                    <small>Thành công</small>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card stats-card text-center p-3">
-                    <i class="fas fa-percentage fa-2x mb-2"></i>
-                    <h4 class="mb-0" id="successRate">0%</h4>
-                    <small>Tỷ lệ thành công</small>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card stats-card text-center p-3">
-                    <i class="fas fa-clock fa-2x mb-2"></i>
-                    <h4 class="mb-0" id="timeElapsed">0s</h4>
-                    <small>Thời gian</small>
-                </div>
-            </div>
-        </div>
+        <!-- Alerts -->
+        <div id="alertContainer"></div>
 
-        <!-- Results Section -->
-        <div class="card shadow-lg" id="resultsSection" style="display: none;">
-            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-                <h4 class="mb-0">
-                    <i class="fas fa-list"></i> Kết quả tìm kiếm
-                </h4>
-                <div>
-                    <button class="btn btn-success btn-sm me-2" onclick="downloadCSV()">
-                        <i class="fas fa-download"></i> Tải CSV
-                    </button>
-                    <button class="btn btn-info btn-sm" onclick="copyToClipboard()">
-                        <i class="fas fa-copy"></i> Copy
-                    </button>
+        <!-- Tasks Section -->
+        <div class="tasks-section">
+            <h3>📋 Danh sách tác vụ</h3>
+            <div id="tasksContainer">
+                <div class="empty-state">
+                    <p>Chưa có tác vụ nào. Tạo tác vụ mới bằng form bên trên.</p>
                 </div>
             </div>
-            <div class="card-body p-0">
-                <div class="table-responsive">
-                    <table class="table table-hover mb-0" id="resultsTable">
-                        <thead class="table-dark">
-                            <tr>
-                                <th style="width: 5%">#</th>
-                                <th style="width: 25%">
-                                    <i class="fas fa-store"></i> Tên địa điểm
-                                </th>
-                                <th style="width: 35%">
-                                    <i class="fas fa-map-marker-alt"></i> Địa chỉ
-                                </th>
-                                <th style="width: 15%">
-                                    <i class="fas fa-phone"></i> Điện thoại
-                                </th>
-                                <th style="width: 20%">
-                                    <i class="fas fa-globe"></i> Website
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody></tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-
-        <!-- No Results -->
-        <div class="card shadow-lg text-center p-5" id="noResultsCard" style="display: none;">
-            <i class="fas fa-search-minus fa-4x text-muted mb-3"></i>
-            <h4 class="text-muted">Không tìm thấy kết quả</h4>
-            <p class="text-muted">Thử thay đổi từ khóa tìm kiếm hoặc tăng số lượng kết quả</p>
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        let searchStartTime;
-        let timerInterval;
+    <!-- Added scroll to top button with logo icon -->
+    <button class="scroll-to-top" id="scrollToTop" onclick="scrollToTop()">
+        <img src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/logo-rYiyy0e1io1OwyJELf4rvtR7gQ9s7S.ico" alt="Scroll to top">
+    </button>
+<form id="searchForm" method="post" action="/search">
+  <input type="text" name="search_key" placeholder="Nhập từ khóa" required>
+  <input type="hidden" name="lat" id="lat">
+  <input type="hidden" name="lng" id="lng">
+  <input type="number" name="num_results" value="10">
+  <button type="submit">Tìm kiếm</button>
+</form>
 
-        document.getElementById("searchForm").addEventListener("submit", function(e){
-            e.preventDefault();
-            
-            // Reset UI
-            hideAllSections();
-            showLoading();
-            startTimer();
-            
-            // Check geolocation
-            if (navigator.geolocation) {
-                updateLoadingStatus("Đang lấy vị trí của bạn...");
-                updateProgress(10);
-                
-                navigator.geolocation.getCurrentPosition(
-                    function(position) {
-                        sendSearch(position.coords.latitude, position.coords.longitude);
-                    }, 
-                    function() {
-                        updateLoadingStatus("Không thể lấy vị trí, tìm kiếm toàn quốc...");
-                        sendSearch();
-                    },
-                    { timeout: 5000 }
-                );
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(function(position) {
+      document.getElementById("lat").value = position.coords.latitude;
+      document.getElementById("lng").value = position.coords.longitude;
+    }, function(error) {
+      console.warn("Không lấy được vị trí:", error);
+    });
+  } else {
+    console.warn("Trình duyệt không hỗ trợ Geolocation");
+  }
+});
+</script>
+
+    <script>
+        let tasks = new Map();
+        let pollIntervals = new Map();
+
+        function scrollToTop() {
+            window.scrollTo({
+                top: 0,
+                behavior: 'smooth'
+            });
+        }
+
+        // Show/hide scroll to top button based on scroll position
+        window.addEventListener('scroll', function() {
+            const scrollButton = document.getElementById('scrollToTop');
+            if (window.pageYOffset > 300) {
+                scrollButton.classList.add('visible');
             } else {
-                updateLoadingStatus("Trình duyệt không hỗ trợ GPS, tìm kiếm toàn quốc...");
-                sendSearch();
+                scrollButton.classList.remove('visible');
             }
         });
 
-        function sendSearch(lat, lng) {
-            updateLoadingStatus("Đang chuẩn bị tìm kiếm...");
-            updateProgress(25);
-            
-            let formData = new FormData(document.getElementById("searchForm"));
-            if (lat && lng) {
-                formData.append("lat", lat);
-                formData.append("lng", lng);
-                updateLoadingStatus(`Tìm kiếm theo vị trí (${lat.toFixed(4)}, ${lng.toFixed(4)})...`);
-            } else {
-                updateLoadingStatus("Đang tìm kiếm trên toàn quốc...");
-            }
-            
-            updateProgress(40);
+        // Load system status
+        function loadSystemStatus() {
+            fetch('/system/status')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('statusText').innerHTML = 
+                        `Đang chạy: ${data.active_tasks}/${data.max_concurrent} tác vụ | ` +
+                        `Driver pool: ${data.driver_pool_busy}/${data.max_drivers}`;
+                })
+                .catch(() => {
+                    document.getElementById('statusText').textContent = 'Không thể tải trạng thái';
+                });
+        }
 
-            fetch("/search", {
-                method: "POST",
+        // Show alert
+        function showAlert(message, type = 'danger') {
+            const alertContainer = document.getElementById('alertContainer');
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type}`;
+            alert.innerHTML = `
+                <strong>${type === 'success' ? '✅' : '❌'}</strong> ${message}
+                <button onclick="this.parentElement.remove()" style="margin-left: auto; background: none; border: none; font-size: 18px; cursor: pointer; color: inherit; opacity: 0.7;">&times;</button>
+            `;
+            alertContainer.appendChild(alert);
+            
+            // Auto remove after 5 seconds
+            setTimeout(() => {
+                if (alert.parentElement) {
+                    alert.remove();
+                }
+            }, 5000);
+        }
+
+        // Submit search form
+        document.getElementById('searchForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            const searchBtn = document.getElementById('searchBtn');
+            const searchBtnText = document.getElementById('searchBtnText');
+            const searchBtnLoading = document.getElementById('searchBtnLoading');
+            
+            // Disable button
+            searchBtn.disabled = true;
+            searchBtnText.style.display = 'none';
+            searchBtnLoading.style.display = 'inline-block';
+            
+            fetch('/search', {
+                method: 'POST',
                 body: formData
             })
-            .then(response => {
-                updateLoadingStatus("Đang xử lý phản hồi...");
-                updateProgress(80);
-                
-                if (!response.ok) {
-                    return response.json().then(err => Promise.reject(err));
-                }
-                return response.json();
-            })
+            .then(response => response.json())
             .then(data => {
-                updateProgress(100);
-                updateLoadingStatus("Hoàn thành!");
-                
-                setTimeout(() => {
-                    hideLoading();
-                    stopTimer();
-                    renderResults(data);
-                }, 500);
+                if (data.error) {
+                    showAlert(data.error, 'danger');
+                } else {
+                    showAlert(`Tác vụ ${data.task_id.substring(0, 8)}... đã được tạo thành công!`, 'success');
+                    addTask(data.task_id, {
+                        search_key: formData.get('search_key'),
+                        num_results: formData.get('num_results'),
+                        status: 'queued',
+                        progress: 0
+                    });
+                    startPolling(data.task_id);
+                }
             })
             .catch(error => {
-                console.error('Error:', error);
-                hideLoading();
-                stopTimer();
-                
-                let errorMessage = error.error || 'Có lỗi xảy ra khi tìm kiếm';
-                showError(errorMessage);
+                showAlert('Lỗi kết nối: ' + error.message, 'danger');
+            })
+            .finally(() => {
+                // Re-enable button
+                searchBtn.disabled = false;
+                searchBtnText.style.display = 'inline';
+                searchBtnLoading.style.display = 'none';
             });
+        });
+
+        // Add task to UI
+        function addTask(taskId, taskData) {
+            tasks.set(taskId, taskData);
+            renderTasks();
         }
 
-        function renderResults(data) {
-            const results = data.results || data;
-            const totalFound = data.total_found || results.length;
-            const successfulExtracts = data.successful_extracts || results.length;
-            
-            // Update stats
-            updateStats(totalFound, successfulExtracts);
-            
-            if (results && results.length > 0) {
-                showResults();
-                populateTable(results);
-            } else {
-                showNoResults();
+        // Update task in UI
+        function updateTask(taskId, updates) {
+            if (tasks.has(taskId)) {
+                const taskData = tasks.get(taskId);
+                Object.assign(taskData, updates);
+                tasks.set(taskId, taskData);
+                renderTasks();
             }
         }
 
-        function populateTable(results) {
-            const tbody = document.querySelector("#resultsTable tbody");
-            tbody.innerHTML = "";
+        // Render all tasks
+        function renderTasks() {
+            const container = document.getElementById('tasksContainer');
             
-            results.forEach((item, index) => {
-                const websiteHTML = item["Website"] && 
-                                  item["Website"] !== "Không có dữ liệu" && 
-                                  item["Website"] !== "Không có website" && 
-                                  item["Website"].includes('http')
-                    ? `<a href="${item['Website']}" target="_blank" class="btn btn-sm btn-outline-primary">
-                         <i class="fas fa-external-link-alt"></i> Xem
-                       </a>`
-                    : `<span class="text-muted">
-                         <i class="fas fa-times-circle"></i> Không có
-                       </span>`;
-                
-                const phoneHTML = item["Số điện thoại"] && 
-                                 item["Số điện thoại"] !== "Không có dữ liệu" &&
-                                 item["Số điện thoại"] !== "Không có số điện thoại"
-                    ? `<a href="tel:${item['Số điện thoại']}" class="text-decoration-none">
-                         <i class="fas fa-phone text-success"></i> ${item["Số điện thoại"]}
-                       </a>`
-                    : `<span class="text-muted">
-                         <i class="fas fa-phone-slash"></i> Không có
-                       </span>`;
-                
-                const row = document.createElement('tr');
-                row.className = 'fade-in';
-                row.innerHTML = `
-                    <td class="fw-bold text-primary">${index + 1}</td>
-                    <td>
-                        <div class="fw-bold">${item["Tên địa điểm"] || 'Không có tên'}</div>
-                    </td>
-                    <td>
-                        <small class="text-muted">
-                            <i class="fas fa-map-marker-alt text-danger"></i> 
-                            ${item["Địa chỉ"] || 'Không có địa chỉ'}
-                        </small>
-                    </td>
-                    <td>${phoneHTML}</td>
-                    <td>${websiteHTML}</td>
+            if (tasks.size === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <p>Chưa có tác vụ nào. Tạo tác vụ mới bằng form bên trên.</p>
+                    </div>
                 `;
-                tbody.appendChild(row);
-                
-                // Add delay for animation effect
-                setTimeout(() => {
-                    row.style.opacity = '1';
-                }, index * 50);
-            });
-        }
-
-        function updateStats(totalFound, successfulExtracts) {
-            document.getElementById('totalFound').textContent = totalFound;
-            document.getElementById('successfulExtracts').textContent = successfulExtracts;
-            document.getElementById('successRate').textContent = 
-                totalFound > 0 ? Math.round((successfulExtracts / totalFound) * 100) + '%' : '0%';
-            
-            document.getElementById('statsSection').style.display = 'block';
-            document.getElementById('statsSection').className = 'row mb-4 fade-in';
-        }
-
-        function showLoading() {
-            document.getElementById('loadingOverlay').style.display = 'flex';
-            document.getElementById('searchBtn').disabled = true;
-        }
-
-        function hideLoading() {
-            document.getElementById('loadingOverlay').style.display = 'none';
-            document.getElementById('searchBtn').disabled = false;
-        }
-
-        function updateLoadingStatus(status) {
-            document.getElementById('loadingStatus').textContent = status;
-        }
-
-        function updateProgress(percent) {
-            document.getElementById('progressBar').style.width = percent + '%';
-        }
-
-        function hideAllSections() {
-            document.getElementById('resultsSection').style.display = 'none';
-            document.getElementById('noResultsCard').style.display = 'none';
-            document.getElementById('statsSection').style.display = 'none';
-        }
-
-        function showResults() {
-            document.getElementById('resultsSection').style.display = 'block';
-            document.getElementById('resultsSection').className = 'card shadow-lg fade-in';
-        }
-
-        function showNoResults() {
-            document.getElementById('noResultsCard').style.display = 'block';
-            document.getElementById('noResultsCard').className = 'card shadow-lg text-center p-5 fade-in';
-        }
-
-        function showError(message) {
-            const alertDiv = document.createElement('div');
-            alertDiv.className = 'alert alert-danger alert-dismissible fade show fade-in';
-            alertDiv.innerHTML = `
-                <i class="fas fa-exclamation-circle"></i> <strong>Lỗi!</strong> ${message}
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            `;
-            document.querySelector('.container').prepend(alertDiv);
-        }
-
-        function startTimer() {
-            searchStartTime = Date.now();
-            timerInterval = setInterval(() => {
-                const elapsed = Math.floor((Date.now() - searchStartTime) / 1000);
-                document.getElementById('timeElapsed').textContent = elapsed + 's';
-            }, 1000);
-        }
-
-        function stopTimer() {
-            if (timerInterval) {
-                clearInterval(timerInterval);
+                return;
             }
-        }
 
-        function downloadCSV() {
-            window.open('/download', '_blank');
-        }
-
-        function copyToClipboard() {
-            const table = document.getElementById('resultsTable');
-            const rows = Array.from(table.rows);
-            let csvContent = '';
+            container.innerHTML = '';
             
-            rows.forEach(row => {
-                const cells = Array.from(row.cells);
-                const rowData = cells.map(cell => cell.textContent.trim()).join('\t');
-                csvContent += rowData + '\n';
-            });
+            // Sort tasks by creation time (newest first)
+            const sortedTasks = Array.from(tasks.entries()).reverse();
             
-            navigator.clipboard.writeText(csvContent).then(() => {
-                // Show success toast
-                const toast = document.createElement('div');
-                toast.className = 'position-fixed top-0 end-0 m-3 alert alert-success fade-in';
-                toast.innerHTML = '<i class="fas fa-check"></i> Đã copy vào clipboard!';
-                document.body.appendChild(toast);
-                
-                setTimeout(() => {
-                    toast.remove();
-                }, 3000);
+            sortedTasks.forEach(([taskId, taskData]) => {
+                const taskElement = document.createElement('div');
+                taskElement.className = 'task-item';
+                taskElement.innerHTML = `
+                    <div class="task-header">
+                        <div>
+                            <strong>🎯 ${taskData.search_key}</strong> 
+                            <span class="task-id">${taskId.substring(0, 8)}...</span>
+                        </div>
+                        <div>
+                            <span class="task-status status-${taskData.status}">${getStatusText(taskData.status)}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: ${taskData.progress || 0}%"></div>
+                    </div>
+                    
+                    <div style="font-size: 14px; color: #6c757d; margin: 10px 0;">
+                        ${getTaskDetails(taskData)}
+                    </div>
+                    
+                    <div class="task-actions">
+                        ${getTaskActions(taskId, taskData)}
+                    </div>
+                `;
+                container.appendChild(taskElement);
             });
         }
 
-        // Add some Easter eggs
-        document.addEventListener('keydown', function(e) {
-            if (e.ctrlKey && e.key === 'Enter') {
-                document.getElementById('searchForm').dispatchEvent(new Event('submit'));
+        function getStatusText(status) {
+            const statusMap = {
+                'queued': 'Chờ xử lý',
+                'running': 'Đang chạy',
+                'completed': 'Hoàn thành',
+                'failed': 'Thất bại'
+            };
+            return statusMap[status] || status;
+        }
+
+        function getTaskDetails(taskData) {
+            let details = `Số lượng: ${taskData.num_results} | Tiến độ: ${Math.round(taskData.progress || 0)}%`;
+            
+            if (taskData.current_count) {
+                details += ` | Đã tìm: ${taskData.current_count}`;
             }
+            
+            if (taskData.successful_extracts) {
+                details += ` | Đã trích xuất: ${taskData.successful_extracts}`;
+            }
+            
+            if (taskData.error) {
+                details += ` | ❌ Lỗi: ${taskData.error}`;
+            }
+            
+            return details;
+        }
+
+        function getTaskActions(taskId, taskData) {
+            let actions = '';
+            
+            if (taskData.status === 'completed') {
+                actions += `
+                    <button class="btn btn-sm btn-success" onclick="downloadResults('${taskId}')">
+                        📥 Tải kết quả
+                    </button>
+                `;
+            }
+            
+            if (taskData.status !== 'running') {
+                actions += `
+                    <button class="btn btn-sm btn-danger" onclick="deleteTask('${taskId}')">
+                        🗑️ Xóa
+                    </button>
+                `;
+            }
+            
+            return actions;
+        }
+
+        // Start polling task status
+        function startPolling(taskId) {
+            if (pollIntervals.has(taskId)) {
+                clearInterval(pollIntervals.get(taskId));
+            }
+            
+            const interval = setInterval(() => {
+                fetch(`/status/${taskId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.error) {
+                            updateTask(taskId, { status: 'failed', error: data.error });
+                            clearInterval(interval);
+                            pollIntervals.delete(taskId);
+                            return;
+                        }
+                        
+                        updateTask(taskId, data);
+                        
+                        // Stop polling if task completed or failed
+                        if (data.status === 'completed' || data.status === 'failed') {
+                            clearInterval(interval);
+                            pollIntervals.delete(taskId);
+                            loadSystemStatus(); // Update system status
+                            
+                            // Show completion notification
+                            if (data.status === 'completed') {
+                                showAlert(`✅ Tác vụ ${taskId.substring(0, 8)}... đã hoàn thành! ${data.successful_extracts} địa điểm được thu thập.`, 'success');
+                            }
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Polling error:', error);
+                        // Don't stop polling on network errors
+                    });
+            }, 2000); // Poll every 2 seconds
+            
+            pollIntervals.set(taskId, interval);
+        }
+
+        // Download results
+        function downloadResults(taskId) {
+            const link = document.createElement('a');
+            link.href = `/download/${taskId}`;
+            link.download = `google_maps_results_${taskId.substring(0, 8)}.csv`;
+            link.click();
+        }
+
+        // Delete task
+        function deleteTask(taskId) {
+            if (!confirm('Bạn có chắc muốn xóa tác vụ này?')) {
+                return;
+            }
+            
+            fetch(`/cleanup/${taskId}`, { method: 'DELETE' })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        showAlert(data.error, 'danger');
+                    } else {
+                        showAlert('Đã xóa tác vụ thành công!', 'success');
+                        tasks.delete(taskId);
+                        
+                        // Stop polling if running
+                        if (pollIntervals.has(taskId)) {
+                            clearInterval(pollIntervals.get(taskId));
+                            pollIntervals.delete(taskId);
+                        }
+                        
+                        renderTasks();
+                        loadSystemStatus();
+                    }
+                })
+                .catch(error => {
+                    showAlert('Lỗi khi xóa tác vụ: ' + error.message, 'danger');
+                });
+        }
+
+        // Set coordinates helper function
+        function setCoords(lat, lng) {
+            document.getElementById('lat').value = lat;
+            document.getElementById('lng').value = lng;
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            loadSystemStatus();
+            
+            // Update system status every 10 seconds
+            setInterval(loadSystemStatus, 10000);
+        });
+
+        // Clean up intervals when page unloads
+        window.addEventListener('beforeunload', function() {
+            pollIntervals.forEach(interval => clearInterval(interval));
         });
     </script>
 </body>
