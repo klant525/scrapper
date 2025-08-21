@@ -34,7 +34,6 @@ import requests
 from urllib.parse import quote_plus
 import re
 from collections import defaultdict, OrderedDict
-num_results = request.form.get("num_results")
 
 
 BASE_DIR = os.path.dirname(__file__)
@@ -279,13 +278,18 @@ class TaskManager:
             return True
     
     def get_cached_result(self, search_key: str, num_results: int, lat: str = '', lng: str = '', session_id: str = '') -> Optional[dict]:
-        cache_key = hashlib.md5(f"{search_key}_{num_results}_{lat}_{lng}".encode()).hexdigest()
+        cache_key = hashlib.md5(f"{search_key}_{num_results}_{lat}_{lng}_{session_id}".encode()).hexdigest()
         cached_data = self.cache.get(cache_key)
+        
+        if cached_data and session_id:
+            # Apply session deduplication to cached results
+            filtered_results = self.dedup_manager.filter_duplicates(session_id, search_key, cached_data)
+            return filtered_results if filtered_results else None
         
         return cached_data
     
     def cache_result(self, search_key: str, num_results: int, results: list, lat: str = '', lng: str = '', session_id: str = ''):
-        cache_key = hashlib.md5(f"{search_key}_{num_results}_{lat}_{lng}".encode()).hexdigest()
+        cache_key = hashlib.md5(f"{search_key}_{num_results}_{lat}_{lng}_{session_id}".encode()).hexdigest()
         self.cache.set(cache_key, results)
 
 # -------------------- Optimized Driver Pool --------------------
@@ -722,28 +726,7 @@ def process_scraping_task(task_id: str, search_params: dict):
             session_id
         )
         
-        if cached_result and session_id:
-            original_count = len(cached_result)
-            deduplicated_results = task_manager.dedup_manager.filter_duplicates(
-                session_id, search_params['search_key'], cached_result
-            )
-            
-            task_manager.dedup_manager.add_results(session_id, search_params['search_key'], deduplicated_results)
-            
-            task_manager.update_task(task_id, {
-                'status': 'completed',
-                'progress': 100,
-                'results': deduplicated_results,
-                'total_found': len(deduplicated_results),
-                'successful_extracts': len(deduplicated_results),
-                'from_cache': True,
-                'deduplicated': True,
-                'original_count': original_count,
-                'deduplicated_count': len(deduplicated_results),
-                'removed_duplicates': original_count - len(deduplicated_results)
-            })
-            return
-        elif cached_result:
+        if cached_result:
             task_manager.update_task(task_id, {
                 'status': 'completed',
                 'progress': 100,
@@ -751,7 +734,7 @@ def process_scraping_task(task_id: str, search_params: dict):
                 'total_found': len(cached_result),
                 'successful_extracts': len(cached_result),
                 'from_cache': True,
-                'deduplicated': False
+                'deduplicated': True
             })
             return
 
@@ -820,6 +803,7 @@ def process_scraping_task(task_id: str, search_params: dict):
             results = task_manager.dedup_manager.filter_duplicates(session_id, keyword, results)
             deduplicated_count = len(results)
             
+            # Add new results to session cache
             task_manager.dedup_manager.add_results(session_id, keyword, results)
             
             task_manager.update_task(task_id, {
@@ -839,9 +823,9 @@ def process_scraping_task(task_id: str, search_params: dict):
             writer.writerows(results)
 
         task_manager.cache_result(
-            keyword,
-            num_results,
-            results if not session_id else cached_result or results,  # Cache original results
+            search_params['search_key'],
+            search_params['num_results'],
+            results,
             search_params.get('lat', ''),
             search_params.get('lng', ''),
             session_id
